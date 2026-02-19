@@ -19,7 +19,10 @@ SC_MODULE(REQGEN){
 
         SC_THREAD(rcv);
         sensitive << clk.pos();
+
+        ADR_MAX = ADR_MIN+RNG-1;
     }
+    uint32_t ADR_MAX;
     sc_signal<uint32_t> wrphase;
     vector<uint32_t> v_wd, v_rd;
     vector<uint32_t> v_randadr;
@@ -28,7 +31,7 @@ SC_MODULE(REQGEN){
     void gen(){
         PReqIf.Reset();
         wrphase = 0;
-        addr = 0;
+        addr = ADR_MIN;
         wait(3);
         while(1){
             req.addr = addr.read();
@@ -38,25 +41,25 @@ SC_MODULE(REQGEN){
                 v_wd.push_back(req.wdat);
             }else if(wrphase == 1){
             }else if(wrphase == 2){
-                req.addr = rand()%DEP;
+                req.addr = rand()%RNG + ADR_MIN;
                 v_randadr.push_back(req.addr);
                 v_wd.push_back(req.wdat);
             }else if(wrphase == 3){
                 req.addr = v_randadr[addr.read()];
             }else if(wrphase == 4){
                 if(req.addr == 5){
-                    req.addr = DEP+10;
+                    req.addr = ADR_MAX+10;
                 }
             }else if(wrphase == 5){
                 if(req.addr == 4){
-                    req.addr = DEP+10;
+                    req.addr = ADR_MAX+10;
                 }
             }
             if(wrphase < 6 ){
                 PReqIf.Push(req);
             }
-            if(addr >= RNG){
-                addr = 0;
+            if(addr >= ADR_MAX){
+                addr = ADR_MIN;
                 wrphase= wrphase+1;
             }else {
                 addr = addr+1;
