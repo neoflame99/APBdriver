@@ -26,6 +26,10 @@ struct PReq{
         sc_trace(ptf, v.wdat, Name+".wdat");
         sc_trace(ptf, v.wr_n, Name+".wr_n");
     }
+    bool operator==(PReq& ot){
+        bool res = *this == ot;
+        return res;
+    }
 };
 SC_MODULE(APBdriver){
     sc_in<bool> clk;
