@@ -62,7 +62,7 @@ SC_MODULE(APBdriver){
         async_reset_signal_is(rstn, false);
     }
 
-    sc_signal<PReq> preq;
+    PReq preq;
     sc_signal <bool> req_ready;
     sc_signal <bool> req_avail;
     sc_signal <bool> rdat_valid;
@@ -120,16 +120,17 @@ SC_MODULE(APBslave){
             do{
                 wait();
             }while(!PENABLE);
+            uint32_t adr = PADDR.read().to_uint();
             if(PWRITE){
                 if(PADDR.read() < DEP){
-                    regbank[PADDR.read()] = PWDATA.read();
+                    regbank[adr] = PWDATA.read();
                     PSLVERR = false;
                 }else{
                     PSLVERR = true;
                 }
             }else{
                 if(PADDR.read() < DEP){
-                    PRDATA = regbank[PADDR.read()];
+                    PRDATA = sc_biguint<32>(regbank[adr]);
                     PSLVERR = false;
                 }else{
                     PSLVERR = true;
