@@ -6,6 +6,8 @@
 #ifndef __APB_IF_H__
 #define __APB_IF_H__
 using namespace std;
+#define ADR_MIN 0
+
 struct PReq{
     uint32_t addr;
     uint32_t wdat;
@@ -88,6 +90,7 @@ SC_MODULE(APBslave){
 
     bool     PRDY_DLY; // apply delay on PREADY
     uint32_t regbank[DEP];
+    uint32_t ADR_MAX;
     SC_HAS_PROCESS(APBslave);
     APBslave(sc_module_name _nm, bool _prdy_dly=false): sc_module(_nm), PRDY_DLY(_prdy_dly),
     clk("clk"), rstn("rstn"),
@@ -97,6 +100,8 @@ SC_MODULE(APBslave){
         SC_THREAD(run);
         sensitive << clk.pos();
         async_reset_signal_is(rstn, false);
+
+        ADR_MAX = ADR_MIN + DEP -1;
     }
     void set_prdydly(bool v){
         PRDY_DLY = v;
@@ -106,7 +111,7 @@ SC_MODULE(APBslave){
         PREADY = false;
         PSLVERR = false;
         int32_t dlycnt;
-        uint32_t adr = 0;
+        uint32_t adr = 0, ladr=0;
         bool has_error = false;
         wait();
         while(1){
@@ -120,10 +125,11 @@ SC_MODULE(APBslave){
             }
             do{
                 adr = PADDR.read().to_uint();
+                ladr = adr - ADR_MIN;
                 has_error = (adr >= DEP) ? true: false;
                 PREADY = !has_error;
                 if( adr >= ADR_MIN && adr <= ADR_MAX && !PWRITE){
-                    PRDATA = sc_biguint<32>(regbank[adr]);
+                    PRDATA = sc_biguint<32>(regbank[ladr]);
                 }
                 wait();
             }while(!PENABLE);
@@ -134,7 +140,7 @@ SC_MODULE(APBslave){
             }
             if(PWRITE && !has_error){
                 if( adr >= ADR_MIN && adr <= ADR_MAX){
-                    regbank[adr] = PWDATA.read().to_uint();
+                    regbank[ladr] = PWDATA.read().to_uint();
                 }
             }
             PREADY  = false;
