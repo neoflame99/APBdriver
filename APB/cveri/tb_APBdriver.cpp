@@ -3,9 +3,6 @@
 #include <vector>
 #include <systemc.h>
 
-#define DEP 16
-
-template <uint32_t RNG=256>
 SC_MODULE(REQGEN){
     sc_in <bool> clk;
     Connections::Out<PReq> PReqIf;
@@ -19,10 +16,7 @@ SC_MODULE(REQGEN){
 
         SC_THREAD(rcv);
         sensitive << clk.pos();
-
-        ADR_MAX = ADR_MIN+RNG-1;
     }
-    uint32_t ADR_MAX;
     sc_signal<uint32_t> wrphase;
     vector<uint32_t> v_wd, v_rd;
     vector<uint32_t> v_randadr;
@@ -41,18 +35,18 @@ SC_MODULE(REQGEN){
                 v_wd.push_back(req.wdat);
             }else if(wrphase == 1){
             }else if(wrphase == 2){
-                req.addr = rand()%RNG + ADR_MIN;
+                req.addr = rand()%ADR_DEP + ADR_MIN;
                 v_randadr.push_back(req.addr);
                 v_wd.push_back(req.wdat);
             }else if(wrphase == 3){
                 req.addr = v_randadr[addr.read()];
             }else if(wrphase == 4){
                 if(req.addr == 5){
-                    req.addr = ADR_MAX+10;
+                    req.addr = ADR_MAX+2;
                 }
             }else if(wrphase == 5){
                 if(req.addr == 4){
-                    req.addr = ADR_MAX+10;
+                    req.addr = ADR_MAX+2;
                 }
             }
             if(wrphase < 6 ){
@@ -115,8 +109,8 @@ SC_MODULE(TB_APBDRIVER){
     Connections::Combinational<uint32_t> PRdat; 
 
     APBdriver     apb_drv;
-    APBslave<DEP> apb_slv;
-    REQGEN<DEP>   req_gen; 
+    APBslave      apb_slv;
+    REQGEN        req_gen; 
 
     SC_HAS_PROCESS(TB_APBDRIVER);
     TB_APBDRIVER(sc_module_name _nm): sc_module(_nm),
