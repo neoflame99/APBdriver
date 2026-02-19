@@ -37,7 +37,7 @@ void APBdriver::apbctrl(){
             rdat_valid = false;
         }while( !req_avail);
         req_rdy_dly = req_ready;
-        if(preq.addr >= ADR_MIN && preq.addr <= ADR_MAX){
+        if(preq.addr >= ADR_MIN && preq.addr <= PSELRNG){
             PSEL = true;
         }else {
             PSEL = false;
