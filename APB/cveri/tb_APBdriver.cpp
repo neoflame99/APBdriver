@@ -94,7 +94,8 @@ SC_MODULE(TB_APBDRIVER){
     REQGEN<256>   req_gen; 
 
     SC_HAS_PROCESS(TB_APBDRIVER);
-    TB_APBDRIVER(sc_module_name _nm): sc_module(_nm)
+    TB_APBDRIVER(sc_module_name _nm): sc_module(_nm),
+    apb_drv("APBDRV"), apb_slv("APBSLV"), req_gen("REQGEN")
     {
         req_gen.clk    (clk    );
         req_gen.PReqIf (PReqIf );
