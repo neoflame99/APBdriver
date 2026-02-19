@@ -14,8 +14,8 @@ void APBdriver::procreq(){
         if(!preq.wr_n){
             do{
                 wait();
-            }while(!rdat_vaild);
-            PRdat.Push(rdat)
+            }while(!rdat_valid);
+            PRdat.Push(rdat);
         }
         wait();
     }
@@ -44,7 +44,7 @@ void APBdriver::apbctrl(){
             wait();
         }while(!PREADY);
         if(!PWRITE){
-            rdat = PRDATA;
+            rdat = PRDATA.read().to_uint();
             rdat_vaild = true;
         }
         if(PSLVERR){
@@ -52,7 +52,7 @@ void APBdriver::apbctrl(){
             if(PWRITE){
                 msg += string(", Wdata: ")+to_string(preq.wdat)+": Writing can't be done!";
             }else{
-                msg += string(", Rdata: ")+to_string(PRDATA.read())+": Reading can't be done!";
+                msg += string(", Rdata: ")+to_string(PRDATA.read().to_uint())+": Reading can't be done!";
             }
             SC_REPORT_INFO("PSLVERR", msg.c_str());
         }
