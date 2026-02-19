@@ -126,7 +126,7 @@ SC_MODULE(APBslave){
             do{
                 adr = PADDR.read().to_uint();
                 ladr = adr - ADR_MIN;
-                has_error = (adr >= DEP) ? true: false;
+                has_error = (adr >= ADR_MIN && adr <= ADR_MAX) ? false : true;
                 PREADY = !has_error;
                 if( adr >= ADR_MIN && adr <= ADR_MAX && !PWRITE){
                     PRDATA = sc_biguint<32>(regbank[ladr]);
