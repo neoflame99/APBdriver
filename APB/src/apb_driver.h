@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <systemc.h>
-#include "connections/connections.h"
+#include "mc_connections.h"
 
 #ifndef __APB_IF_H__
 #define __APB_IF_H__
@@ -63,7 +63,7 @@ SC_MODULE(APBdriver){
     }
 
     PReq preq;
-    sc_signal <bool> req_ready;
+    sc_signal <bool> req_ready, req_rdy_dly;
     sc_signal <bool> req_avail;
     sc_signal <bool> rdat_valid;
     sc_signal <uint32_t> rdat;
@@ -89,7 +89,7 @@ SC_MODULE(APBslave){
     bool     PRDY_DLY; // apply delay on PREADY
     uint32_t regbank[DEP];
     SC_HAS_PROCESS(APBslave);
-    APBslave(sc_module_name _nm): sc_module(_nm),
+    APBslave(sc_module_name _nm, bool _prdy_dly=false): sc_module(_nm), PRDY_DLY(_prdy_dly),
     clk("clk"), rstn("rstn"),
     PSEL("PSEL"), PENABLE("PENABLE"), PWRITE("PWRITE"), PADDR("PADDR"),
     PWDATA("PWDATA"), PRDATA("PRDATA"), PREADY("PREADY"), PSLVERR("PSLVERR")
@@ -106,6 +106,8 @@ SC_MODULE(APBslave){
         PREADY = false;
         PSLVERR = false;
         int32_t dlycnt;
+        uint32_t adr = 0;
+        bool has_error = false;
         wait();
         while(1){
             do{
@@ -116,27 +118,27 @@ SC_MODULE(APBslave){
                 wait();
                 dlycnt--;
             }
-            PREADY = true;
             do{
+                adr = PADDR.read().to_uint();
+                has_error = (adr >= DEP) ? true: false;
+                PREADY = !has_error;
+                if( adr >= ADR_MIN && adr <= ADR_MAX && !PWRITE){
+                    PRDATA = sc_biguint<32>(regbank[adr]);
+                }
                 wait();
             }while(!PENABLE);
-            uint32_t adr = PADDR.read().to_uint();
-            if(PWRITE){
-                if(PADDR.read() < DEP){
-                    regbank[adr] = PWDATA.read();
-                    PSLVERR = false;
-                }else{
-                    PSLVERR = true;
-                }
-            }else{
-                if(PADDR.read() < DEP){
-                    PRDATA = sc_biguint<32>(regbank[adr]);
-                    PSLVERR = false;
-                }else{
-                    PSLVERR = true;
+            if( has_error ){
+                PREADY  = true;
+                PSLVERR = true;
+                wait();
+            }
+            if(PWRITE && !has_error){
+                if( adr >= ADR_MIN && adr <= ADR_MAX){
+                    regbank[adr] = PWDATA.read().to_uint();
                 }
             }
-            PREADY = false;
+            PREADY  = false;
+            PSLVERR = false;
             wait();
         }
     }
