@@ -26,8 +26,8 @@ struct PReq{
         sc_trace(ptf, v.wdat, Name+".wdat");
         sc_trace(ptf, v.wr_n, Name+".wr_n");
     }
-    bool operator==(const PReq& ot){
-        bool res = *this == ot;
+    bool operator==(const PReq& ot) const{
+        bool res = (addr == ot.addr) && (wdat == ot.wdat) && (wr_n == ot.wr_n);
         return res;
     }
 };
