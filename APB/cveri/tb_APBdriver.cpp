@@ -3,6 +3,8 @@
 #include <vector>
 #include <systemc.h>
 
+#define DEP 16
+
 template <uint32_t RNG=256>
 SC_MODULE(REQGEN){
     sc_in <bool> clk;
@@ -20,27 +22,44 @@ SC_MODULE(REQGEN){
     }
     sc_signal<uint32_t> wrphase;
     vector<uint32_t> v_wd, v_rd;
+    vector<uint32_t> v_randadr;
+    sc_signal<uint32_t> addr;
     PReq req;
     void gen(){
         PReqIf.Reset();
         wrphase = 0;
-        uint32_t addr = 0;
-        wait();
+        addr = 0;
+        wait(3);
         while(1){
-            req.addr = addr;
+            req.addr = addr.read();
+            req.wr_n = !(wrphase.read() & 0x1);
             if(wrphase == 0){
                 req.wdat = rand();   
-                req.wr_n = true;
                 v_wd.push_back(req.wdat);
             }else if(wrphase == 1){
-                req.wr_n = false;
+            }else if(wrphase == 2){
+                req.addr = rand()%DEP;
+                v_randadr.push_back(req.addr);
+                v_wd.push_back(req.wdat);
+            }else if(wrphase == 3){
+                req.addr = v_randadr[addr.read()];
+            }else if(wrphase == 4){
+                if(req.addr == 5){
+                    req.addr = DEP+10;
+                }
+            }else if(wrphase == 5){
+                if(req.addr == 4){
+                    req.addr = DEP+10;
+                }
             }
-            PReqIf.Push(req);
-            addr++;
+            if(wrphase < 6 ){
+                PReqIf.Push(req);
+            }
             if(addr >= RNG){
                 addr = 0;
-                if(wrphase==1){ chk(); }
-                wrphase++;
+                wrphase= wrphase+1;
+            }else {
+                addr = addr+1;
             }
             wait();
         }
@@ -48,12 +67,15 @@ SC_MODULE(REQGEN){
     void rcv(){
         PRdat.Reset();
         uint32_t rdat;
+        bool rdres;
         wait();
         while(1){
-            rdat = PRdat.Pop();
-            if(wrphase == 1){
+            rdres = PRdat.PopNB(rdat);
+            if(rdres && wrphase < 5){
                 v_rd.push_back(rdat);
             }
+            if(wrphase == 6) { chk(); }
+            wait();
         }
     }
     void chk(){
@@ -90,8 +112,8 @@ SC_MODULE(TB_APBDRIVER){
     Connections::Combinational<uint32_t> PRdat; 
 
     APBdriver     apb_drv;
-    APBslave<256> apb_slv;
-    REQGEN<256>   req_gen; 
+    APBslave<DEP> apb_slv;
+    REQGEN<DEP>   req_gen; 
 
     SC_HAS_PROCESS(TB_APBDRIVER);
     TB_APBDRIVER(sc_module_name _nm): sc_module(_nm),
@@ -176,6 +198,10 @@ int sc_main(int argc, char *argv[]){
     sc_trace(tf, tb.apb_drv.PRdat.vld, "apb_drv_PRdat_vld");
     sc_trace(tf, tb.apb_drv.PRdat.rdy, "apb_drv_PRdat_rdy");
     sc_trace(tf, tb.apb_drv.PRdat.dat, "apb_drv_PRdat_dat");
+    sc_trace(tf, tb.apb_drv.req_avail, "apb_drv_req_avail");
+    sc_trace(tf, tb.apb_drv.req_ready, "apb_drv_req_ready");
+    sc_trace(tf, tb.apb_drv.rdat_valid, "apb_drv_rdat_valid");
+    sc_trace(tf, tb.apb_drv.rdat      , "apb_drv_rat");
 
     sc_trace(tf, tb.apb_slv.PSEL, "apb_slv_PSEL");
     sc_trace(tf, tb.apb_slv.PENABLE, "apb_slv_PENABLE");
@@ -185,7 +211,6 @@ int sc_main(int argc, char *argv[]){
     sc_trace(tf, tb.apb_slv.PRDATA, "apb_slv_PRDATA");
     sc_trace(tf, tb.apb_slv.PREADY, "apb_slv_PREADY");
     sc_trace(tf, tb.apb_slv.PSLVERR, "apb_slv_PSLVERR");
-
 
     sc_start();
 
