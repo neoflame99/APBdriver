@@ -6,7 +6,10 @@
 #ifndef __APB_IF_H__
 #define __APB_IF_H__
 using namespace std;
+#define ADR_DEP 16
 #define ADR_MIN 0
+#define ADR_MAX (ADR_MIN + ADR_DEP -1)
+#define PSELRNG (ADR_MIN + ADR_DEP*2 )
 
 struct PReq{
     uint32_t addr;
@@ -89,8 +92,8 @@ SC_MODULE(APBslave){
     sc_out<bool> PSLVERR;
 
     bool     PRDY_DLY; // apply delay on PREADY
-    uint32_t regbank[DEP];
-    uint32_t ADR_MAX;
+    uint32_t regbank[ADR_DEP];
+    
     SC_HAS_PROCESS(APBslave);
     APBslave(sc_module_name _nm, bool _prdy_dly=false): sc_module(_nm), PRDY_DLY(_prdy_dly),
     clk("clk"), rstn("rstn"),
@@ -100,8 +103,6 @@ SC_MODULE(APBslave){
         SC_THREAD(run);
         sensitive << clk.pos();
         async_reset_signal_is(rstn, false);
-
-        ADR_MAX = ADR_MIN + DEP -1;
     }
     void set_prdydly(bool v){
         PRDY_DLY = v;
