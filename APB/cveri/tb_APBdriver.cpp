@@ -2,6 +2,7 @@
 #include "apb_driver.h"
 #include <vector>
 #include <systemc.h>
+#include "fcovergrp.h"
 
 SC_MODULE(REQGEN){
     sc_in <bool> clk;
@@ -109,12 +110,14 @@ SC_MODULE(TB_APBDRIVER){
     Connections::Combinational<uint32_t> PRdat; 
 
     APBdriver     apb_drv;
-    APBslave      apb_slv;
+    APBslave<256> apb_slv;
     REQGEN        req_gen; 
+
+    fcovergrp fcov;
 
     SC_HAS_PROCESS(TB_APBDRIVER);
     TB_APBDRIVER(sc_module_name _nm): sc_module(_nm),
-    apb_drv("APBDRV"), apb_slv("APBSLV"), req_gen("REQGEN")
+    apb_drv("APBDRV"), apb_slv("APBSLV", true), req_gen("REQGEN"), fcov("FCOV")
     {
         req_gen.clk    (clk    );
         req_gen.PReqIf (PReqIf );
@@ -146,12 +149,41 @@ SC_MODULE(TB_APBDRIVER){
 
         SC_THREAD(rstn_gen);
         sensitive << clk.pos();
+
+        SC_THREAD(fcov_thread);
+        sensitive << clk.pos();
+        dont_initialize();
+
+        //auto cntxt = fc4sc::global::create_new_context();
+        //EXPECT_EQ(fcov.get_inst_coverage(), 0);
+
     }
+    virtual ~TB_APBDRIVER(){
+        cout << "fcov: " << fcov.get_coverage() << endl;
+    }
+
     void rstn_gen(){
         rstn = 0;
         wait();
         rstn = 1;
+        while(1){
+            wait();
+        }
     }
+
+    void fcov_thread(){
+        while(1){
+            if(PSEL.read() && PENABLE.read() && PREADY.read()){
+                fcov.PADDR   = PADDR.read().to_uint64();
+                fcov.PWDATA  = PWDATA.read().to_uint();
+                fcov.PRDATA  = PRDATA.read().to_uint();
+                fcov.PWRITE  = PWRITE.read();
+                fcov.sample();
+            }
+            wait();
+        }
+    }
+
 };
 int sc_main(int argc, char *argv[]){
     sc_clock clk("clk", 1, SC_NS);
@@ -212,5 +244,11 @@ int sc_main(int argc, char *argv[]){
     sc_start();
 
     sc_close_vcd_trace_file(tf);
+    //fc4sc::global::coverage_save("tb_APBdriver.cdf");
+    //fc4sc::global_access::coverage_save("tb_APBdriver.xml");
+    xml_printer::coverage_save("tb_APBdriver.xml");
+    double gcov= fc4sc::global::get_coverage();
+    cout << "gloaal cov: " << gcov << endl;
+
     return 0;
 }

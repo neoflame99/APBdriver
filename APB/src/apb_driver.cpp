@@ -11,6 +11,7 @@ void APBdriver::procreq(){
         do{
             wait();
         }while(!req_ready);
+        req_avail = false;
         if(!preq.wr_n){
             do{
                 wait();
@@ -30,8 +31,11 @@ void APBdriver::apbctrl(){
     PENABLE = false;
     PADDR   = 0;
     PWDATA  = 0;
+    bool ctrl_by_psel = false;
     wait();
     while(1){
+        req_ready = true;
+        PSEL = false;
         do{
             wait();
             rdat_valid = false;
@@ -39,35 +43,39 @@ void APBdriver::apbctrl(){
         req_rdy_dly = req_ready;
         if(preq.addr >= ADR_MIN && preq.addr <= PSELRNG){
             PSEL = true;
+            ctrl_by_psel = true;
         }else {
             PSEL = false;
+            ctrl_by_psel = false;
         }
         req_ready = false;
-        PSEL   = true;
-        PADDR  = preq.addr; 
-        PWDATA = preq.wdat;
-        PWRITE = preq.wr_n;
+        if(ctrl_by_psel){
+            PADDR  = preq.addr; 
+            PWDATA = preq.wdat;
+            PWRITE = preq.wr_n;
+        }
         wait();
-        if(req_rdy_dly){
-            PENABLE= true;
+        if(PSEL){
+           if(req_rdy_dly){
+               PENABLE= true;
+           }
+           do{
+               wait();
+           }while(!PREADY);
+           PENABLE = false;
+           if(!PWRITE){
+               rdat = PRDATA.read().to_uint();
+               rdat_valid = true;
+           }
+           if(PSLVERR){
+               string msg = string("Addr: ")+to_string(PADDR.read().to_uint());
+               if(PWRITE){
+                   msg += string(", Wdata: ")+to_string(PWDATA.read().to_uint())+": Writing can't be done!";
+               }else{
+                   msg += ": Reading can't be done!";
+               }
+               SC_REPORT_WARNING("PSLVERR", msg.c_str());
+           }
         }
-        do{
-            wait();
-        }while(!PREADY);
-        PENABLE = false;
-        if(!PWRITE){
-            rdat = PRDATA.read().to_uint();
-            rdat_vaild = true;
-        }
-        if(PSLVERR){
-            string msg = string("Addr: ")+to_string(PADDR.read().to_uint());
-            if(PWRITE){
-                msg += string(", Wdata: ")+to_string(PWDATA.read().to_uint())+": Writing can't be done!";
-            }else{
-                msg += ": Reading can't be done!";
-            }
-            SC_REPORT_WARNING("PSLVERR", msg.c_str());
-        }
-        req_ready = true;
     }
 }

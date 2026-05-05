@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <iostream>
 #include <systemc.h>
-#include "mc_connections.h"
+//#include "mc_connections.h"
+#include "connections/connections.h"
 
 #ifndef __APB_IF_H__
 #define __APB_IF_H__
@@ -87,7 +88,7 @@ SC_MODULE(APBslave){
     sc_in <bool> PWRITE;
     sc_in <sc_biguint<32>> PADDR ;
     sc_in <sc_biguint<32>> PWDATA;
-    sc_in <sc_biguint<32>> PRDATA;
+    sc_out<sc_biguint<32>> PRDATA;
     sc_out<bool> PREADY;
     sc_out<bool> PSLVERR;
 
