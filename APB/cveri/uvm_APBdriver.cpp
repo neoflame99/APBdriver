@@ -1,4 +1,5 @@
 #include "apb_driver.h"
+#include "fcovergrp.h"
 
 #include <cstdlib>
 #include <deque>
@@ -377,10 +378,65 @@ private:
     }
 };
 
+class apb_coverage_subscriber : public uvm::uvm_component {
+public:
+    fcovergrp fcov;
+    uvm::uvm_analysis_imp<apb_req, apb_coverage_subscriber> req_export;
+    uvm::uvm_analysis_imp<uint32_t, apb_coverage_subscriber> rdat_export;
+
+    UVM_COMPONENT_UTILS(apb_coverage_subscriber)
+
+    apb_coverage_subscriber(uvm::uvm_component_name name)
+        : uvm::uvm_component(name), fcov("apb_fcov"),
+          req_export("req_export", this),
+          rdat_export("rdat_export", this),
+          read_sample_count(0),
+          write_sample_count(0) {}
+
+    void write(const apb_req& t) {
+        fcov.PADDR = t.addr;
+        fcov.PWDATA = t.wdat;
+        fcov.PWRITE = t.wr_n;
+        fcov.sample();
+
+        if (t.wr_n) {
+            ++write_sample_count;
+        } else {
+            ++read_sample_count;
+        }
+
+        UVM_INFO(get_name(), "Sampled APB coverage: " + t.convert2string(), uvm::UVM_HIGH);
+    }
+
+    void write(const uint32_t& rdat) {
+        fcov.PRDATA = rdat;
+        stringstream ss;
+        ss << "Observed PRDATA for coverage context: 0x" << hex << rdat;
+        UVM_INFO(get_name(), ss.str(), uvm::UVM_HIGH);
+    }
+
+    void report_phase(uvm::uvm_phase& phase) override {
+        (void)phase;
+        stringstream ss;
+        ss << "\n <== APB functional coverage summary ==>\n"
+           << " read_samples = " << dec << read_sample_count
+           << "\n write_samples = " << write_sample_count
+           << "\n instance_coverage = " << fcov.get_coverage() << "%"
+           << "\n global_coverage = " << fc4sc::global::get_coverage() << "%"
+           << "\n <=====================================>";
+        UVM_INFO(get_name(), ss.str(), uvm::UVM_LOW);
+    }
+
+private:
+    uint32_t read_sample_count;
+    uint32_t write_sample_count;
+};
+
 class apb_env : public uvm::uvm_env {
 public:
     apb_agent* agent;
     apb_scoreboard* scoreboard;
+    apb_coverage_subscriber* cov_sub;
 
     UVM_COMPONENT_UTILS(apb_env)
 
@@ -392,14 +448,18 @@ public:
         uvm::uvm_config_db<int>::set(this, "agent", "is_active", uvm::UVM_ACTIVE);
         agent = apb_agent::type_id::create("agent", this);
         scoreboard = apb_scoreboard::type_id::create("scoreboard", this);
+        cov_sub = apb_coverage_subscriber::type_id::create("cov_sub", this);
         assert(agent != nullptr);
         assert(scoreboard != nullptr);
+        assert(cov_sub != nullptr);
     }
 
     void connect_phase(uvm::uvm_phase& phase) override {
         uvm::uvm_env::connect_phase(phase);
         agent->req_monitor->a_req_port.connect(scoreboard->req_export);
         agent->rdat_monitor->a_rdat_port.connect(scoreboard->rdat_export);
+        agent->req_monitor->a_req_port.connect(cov_sub->req_export);
+        agent->rdat_monitor->a_rdat_port.connect(cov_sub->rdat_export);
     }
 };
 
@@ -635,6 +695,9 @@ int sc_main(int argc, char* argv[]) {
 
     sc_close_vcd_trace_file(tf);
     cout << "\nWaveform saved to: tb_wave.vcd\n";
+    xml_printer::coverage_save("tb_APBdriver.xml");
+    cout << "Coverage report saved to: tb_APBdriver.xml\n";
+    cout << "Global functional coverage: " << fc4sc::global::get_coverage() << "%\n";
 
     return 0;
 }

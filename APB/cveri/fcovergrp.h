@@ -20,8 +20,8 @@ public:
   // using convergroup::sample();
   // => fcovergrp(string inst_name) : fc4sc::covergroup(inst_name)
   { }
-  //COVERPOINT(uint32_t,  R_PADDR_CVP, PADDR, !PWRITE ) {
-  COVERPOINT(uint32_t,  R_PADDR_CVP, PADDR ) {
+  COVERPOINT(uint32_t,  R_PADDR_CVP, PADDR, !PWRITE ) {
+  //COVERPOINT(uint32_t,  R_PADDR_CVP, PADDR ) {
     bin<uint32_t>("read_bins", interval(ADR_MIN, ADR_MAX)),
     ignore_bin<uint32_t>("ignore_bins",interval(ADR_MAX+1, PSELRNG))
   };
