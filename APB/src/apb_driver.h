@@ -6,6 +6,7 @@
 
 #ifndef __APB_IF_H__
 #define __APB_IF_H__
+
 using namespace std;
 #define ADR_DEP 16
 #define ADR_MIN 0
